@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUJ Library — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: #F7F6F2; color: #1C1917; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="min-h-screen antialiased">
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-50 rounded-lg px-4 py-3 text-sm shadow-lg"></div>
+
+  <!-- Admin login -->
+  <main id="loginView" class="min-h-screen flex items-center justify-center p-5">
+    <section class="w-full max-w-sm rounded-xl border border-stone-200 bg-white p-7 shadow-sm">
+      <p class="text-xs uppercase tracking-wider text-stone-500 mb-2">MUJ Library</p>
+      <h1 class="text-xl font-semibold tracking-tight">Admin sign in</h1>
+      <p class="mt-2 mb-6 text-sm text-stone-500">Sign in to monitor current seat occupancy and student sessions.</p>
+      <form id="adminLoginForm" class="space-y-4">
+        <div>
+          <label for="adminUsername" class="mb-1.5 block text-sm font-medium text-stone-700">Username</label>
+          <input id="adminUsername" autocomplete="username" required class="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2.5 text-sm outline-none focus:border-stone-800" />
+        </div>
+        <div>
+          <label for="adminPassword" class="mb-1.5 block text-sm font-medium text-stone-700">Password</label>
+          <input id="adminPassword" type="password" autocomplete="current-password" required class="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2.5 text-sm outline-none focus:border-stone-800" />
+        </div>
+        <button id="loginButton" type="submit" class="w-full rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-stone-800">Sign in</button>
+      </form>
+      <p class="mt-4 text-xs text-stone-400">Admin access is separate from student login.</p>
+    </section>
+  </main>
+
+  <!-- Dashboard -->
+  <div id="dashboardView" class="hidden min-h-screen">
+    <header class="border-b border-stone-200 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">MUJ Library <span class="font-normal text-stone-400">/ Admin</span></h1>
+          <p class="mt-1 text-xs text-stone-500">Live occupancy and student session monitoring</p>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span id="lastUpdated" class="text-xs text-stone-400">Not updated yet</span>
+          <a href="/print-qrs" class="rounded-lg border border-stone-200 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50">QR sheet</a>
+          <button id="logoutButton" class="rounded-lg bg-stone-900 px-3 py-2 text-xs font-medium text-white hover:bg-stone-800">Log out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl space-y-6 px-5 py-7">
+      <section class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="rounded-xl border border-stone-200 bg-white p-4"><p class="text-xs text-stone-500">Total places</p><p id="totalSeats" class="mt-2 text-2xl font-semibold">—</p></div>
+        <div class="rounded-xl border border-stone-200 bg-white p-4"><p class="text-xs text-stone-500">Available</p><p id="availableSeats" class="mt-2 text-2xl font-semibold text-emerald-700">—</p></div>
+        <div class="rounded-xl border border-stone-200 bg-white p-4"><p class="text-xs text-stone-500">Occupied</p><p id="occupiedSeats" class="mt-2 text-2xl font-semibold text-stone-800">—</p></div>
+        <div class="rounded-xl border border-stone-200 bg-white p-4"><p class="text-xs text-stone-500">Renewal required</p><p id="renewalSeats" class="mt-2 text-2xl font-semibold text-amber-700">—</p></div>
+      </section>
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold">Current seat occupancy</h2>
+            <p class="mt-1 text-xs text-stone-500">Student details are visible here only after admin sign-in.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <input id="searchInput" type="search" placeholder="Search seat or student" class="w-52 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs outline-none focus:border-stone-500" />
+            <select id="statusFilter" class="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs outline-none">
+              <option value="ALL">All active sessions</option>
+              <option value="OCCUPIED">Occupied</option>
+              <option value="AWAITING_RENEWAL">Awaiting renewal</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[850px] text-left text-sm">
+            <thead class="border-b border-stone-200 bg-stone-50 text-xs text-stone-500">
+              <tr>
+                <th class="px-3 py-3 font-medium">Place</th>
+                <th class="px-3 py-3 font-medium">Student</th>
+                <th class="px-3 py-3 font-medium">Registration number</th>
+                <th class="px-3 py-3 font-medium">Session started</th>
+                <th class="px-3 py-3 font-medium">Occupied for</th>
+                <th class="px-3 py-3 font-medium">Session status</th>
+              </tr>
+            </thead>
+            <tbody id="activeSessionsBody" class="divide-y divide-stone-100">
+              <tr><td colspan="6" class="px-3 py-8 text-center text-sm text-stone-400">Loading occupancy…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="tableFooter" class="mt-3 text-xs text-stone-400"></p>
+      </section>
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <div class="mb-4">
+          <h2 class="text-base font-semibold">All Tables</h2>
+          <p class="mt-1 text-xs text-stone-500">A quick view of which tables and discussion rooms are free or occupied.</p>
+        </div>
+        <div id="seatOverview" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let adminState = null;
+    let refreshTimer = null;
+
+    const byId = (id) => document.getElementById(id);
+
+    function toast(message, error = false) {
+      const node = byId('toast');
+      node.textContent = message;
+      node.className = `fixed bottom-5 right-5 z-50 rounded-lg px-4 py-3 text-sm shadow-lg ${error ? 'bg-red-700 text-white' : 'bg-stone-900 text-white'}`;
+      setTimeout(() => node.classList.add('hidden'), 3500);
+    }
+
+    async function api(url, options = {}) {
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.error || `Request failed (${response.status})`);
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    function showLogin() {
+      byId('loginView').classList.remove('hidden');
+      byId('dashboardView').classList.add('hidden');
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+
+    function showDashboard() {
+      byId('loginView').classList.add('hidden');
+      byId('dashboardView').classList.remove('hidden');
+    }
+
+    byId('adminLoginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = byId('loginButton');
+      button.disabled = true;
+      button.textContent = 'Signing in…';
+      try {
+        await api('/api/admin/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: byId('adminUsername').value.trim(),
+            password: byId('adminPassword').value
+          })
+        });
+        byId('adminPassword').value = '';
+        showDashboard();
+        await refreshState();
+        if (!refreshTimer) refreshTimer = setInterval(refreshState, 5000);
+        toast('Admin signed in.');
+      } catch (error) {
+        toast(error.message || 'Could not sign in.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Sign in';
+      }
+    });
+
+    byId('logoutButton').addEventListener('click', async () => {
+      try { await api('/api/admin/logout', { method: 'POST', body: '{}' }); }
+      catch (error) { console.warn(error); }
+      adminState = null;
+      showLogin();
+      toast('Logged out.');
+    });
+
+    byId('searchInput').addEventListener('input', renderSessions);
+    byId('statusFilter').addEventListener('change', renderSessions);
+
+    function fmtDuration(seconds) {
+      seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+      const days = Math.floor(seconds / 86400); seconds %= 86400;
+      const hours = Math.floor(seconds / 3600); seconds %= 3600;
+      const mins = Math.floor(seconds / 60); const secs = seconds % 60;
+      if (days) return `${days}d ${hours}h ${mins}m`;
+      if (hours) return `${hours}h ${mins}m`;
+      if (mins) return `${mins}m ${secs}s`;
+      return `${secs}s`;
+    }
+
+    function makeCell(text, className = 'px-3 py-3 text-stone-700') {
+      const td = document.createElement('td');
+      td.className = className;
+      td.textContent = text == null ? '' : String(text);
+      return td;
+    }
+
+    function renderSessions() {
+      if (!adminState) return;
+      const body = byId('activeSessionsBody');
+      body.replaceChildren();
+      const query = byId('searchInput').value.trim().toLowerCase();
+      const status = byId('statusFilter').value;
+      const sessions = adminState.active_sessions.filter(item => {
+        const matchesStatus = status === 'ALL' || item.status === status;
+        const searchTarget = `${item.seat_label} ${item.zone} ${item.student_name} ${item.roll_number}`.toLowerCase();
+        return matchesStatus && searchTarget.includes(query);
+      });
+
+      if (!sessions.length) {
+        const tr = document.createElement('tr');
+        const td = makeCell('No matching active sessions.', 'px-3 py-8 text-center text-sm text-stone-400');
+        td.colSpan = 6;
+        tr.appendChild(td);
+        body.appendChild(tr);
+      } else {
+        sessions.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.appendChild(makeCell(item.seat_label, 'px-3 py-3 font-mono text-xs font-semibold text-stone-900'));
+          tr.appendChild(makeCell(item.student_name, 'px-3 py-3 font-medium text-stone-800'));
+          tr.appendChild(makeCell(item.roll_number, 'px-3 py-3 font-mono text-xs text-stone-600'));
+          tr.appendChild(makeCell(item.started_at, 'px-3 py-3 font-mono text-xs text-stone-500'));
+          const elapsed = makeCell(fmtDuration(item.elapsed_seconds), 'px-3 py-3 font-mono text-xs text-stone-800');
+          elapsed.dataset.elapsed = String(item.elapsed_seconds);
+          tr.appendChild(elapsed);
+          const statusCell = document.createElement('td');
+          statusCell.className = 'px-3 py-3';
+          const pill = document.createElement('span');
+          pill.className = item.status === 'AWAITING_RENEWAL'
+            ? 'inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800'
+            : 'inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800';
+          pill.textContent = item.status === 'AWAITING_RENEWAL'
+            ? `Re-scan needed · ${fmtDuration(item.seconds_until_expiry)} left`
+            : `Occupied · ${fmtDuration(item.seconds_until_due)} to re-scan`;
+          statusCell.appendChild(pill);
+          tr.appendChild(statusCell);
+          body.appendChild(tr);
+        });
+      }
+      byId('tableFooter').textContent = `Showing ${sessions.length} of ${adminState.active_sessions.length} active sessions. Student details are restricted to admins.`;
+    }
+
+    function renderSeats() {
+      const wrapper = byId('seatOverview');
+      wrapper.replaceChildren();
+      adminState.seats.forEach(seat => {
+        const card = document.createElement('div');
+        const occupied = seat.status === 'OCCUPIED';
+        const renewal = seat.status === 'AWAITING_RENEWAL';
+        card.className = `rounded-lg border p-3 ${renewal ? 'border-amber-300 bg-amber-50' : occupied ? 'border-stone-300 bg-stone-100' : 'border-emerald-200 bg-emerald-50'}`;
+        const title = document.createElement('p');
+        title.className = 'font-mono text-sm font-semibold text-stone-900';
+        title.textContent = seat.seat_label;
+        const zone = document.createElement('p');
+        zone.className = 'mt-1 text-[11px] text-stone-500';
+        zone.textContent = seat.zone === 'Silent Study Zone' ? 'Table Number' : 'Discussion Rooms';
+        const state = document.createElement('p');
+        state.className = 'mt-2 text-xs font-medium';
+        state.textContent = renewal ? 'Renewal required' : occupied ? 'Occupied' : 'Available';
+        card.append(title, zone, state);
+        wrapper.appendChild(card);
+      });
+    }
+
+    async function refreshState() {
+      try {
+        adminState = await api('/api/admin/state', { method: 'GET', headers: {} });
+        showDashboard();
+        byId('totalSeats').textContent = adminState.summary.total;
+        byId('availableSeats').textContent = adminState.summary.available;
+        byId('occupiedSeats').textContent = adminState.summary.occupied;
+        byId('renewalSeats').textContent = adminState.summary.awaiting_renewal;
+        byId('lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        renderSessions();
+        renderSeats();
+      } catch (error) {
+        if (error.status === 401) showLogin();
+        else {
+          console.error('Unable to load admin state:', error);
+          toast(error.message || 'Could not load occupancy data.', true);
+        }
+      }
+    }
+
+    // Keep elapsed occupancy durations moving between server refreshes.
+    setInterval(() => {
+      document.querySelectorAll('[data-elapsed]').forEach(cell => {
+        const next = (Number(cell.dataset.elapsed) || 0) + 1;
+        cell.dataset.elapsed = String(next);
+        cell.textContent = fmtDuration(next);
+      });
+    }, 1000);
+
+    // Detect an existing admin session after refresh.
+    refreshState().then(() => {
+      if (!byId('dashboardView').classList.contains('hidden') && !refreshTimer) {
+        refreshTimer = setInterval(refreshState, 5000);
+      }
+    });
+  </script>
+</body>
+</html>

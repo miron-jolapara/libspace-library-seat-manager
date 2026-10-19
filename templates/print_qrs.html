@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LibSpace QR Codes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .qr-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .qr-card {
+            border: 1px solid #ccc;
+            padding: 15px;
+            text-align: center;
+            break-inside: avoid;
+        }
+
+        .qr-card img {
+            width: 150px;
+            height: 150px;
+        }
+
+        @media print {
+            button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>LibSpace — Seat QR Codes</h1>
+
+    <button onclick="window.print()">Print QR Sheet</button>
+
+    <div class="qr-container">
+        {% for seat in seats %}
+        <div class="qr-card">
+            <h3>{{ seat.label }}</h3>
+            <p>{{ seat.zone }}</p>
+
+            <img
+                src="data:image/png;base64,{{ seat.image_b64 }}"
+                alt="QR code for {{ seat.label }}"
+            />
+
+            <p>{{ seat.token }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUJ Library — Student Portal</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F7F6F2;
+      color: #1C1917;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .floor-grid {
+      background-color: #FAF9F5;
+      background-image: radial-gradient(#D6D3CD 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .dot-pulse {
+      animation: subtle-pulse 1.4s ease-in-out infinite;
+    }
+
+    #qr-reader video {
+      width: 100% !important;
+      border-radius: 8px;
+    }
+
+    #qr-reader__dashboard_section_csr button,
+    #qr-reader__dashboard_section_fsr button {
+      border: 1px solid #d6d3d1;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 4px;
+      background: #fff;
+      font-size: 12px;
+    }
+
+    @media (max-width: 640px) {
+      #qr-reader { font-size: 12px; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col antialiased selection:bg-stone-200">
+
+  <!-- LOGIN VIEW -->
+  <div id="loginModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white border border-stone-200 rounded-xl p-8 max-w-sm w-full shadow-xl">
+      <div class="mb-6">
+        <h2 class="text-base font-semibold text-stone-900 tracking-tight">MUJ Library Access</h2>
+        <p class="text-xs text-stone-500 mt-1">Enter your details to view and reserve seats.</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4 text-xs">
+        <div>
+          <label for="loginName" class="block text-stone-600 font-medium mb-1.5">Full Name</label>
+          <input id="loginName" type="text" required autocomplete="name" placeholder="e.g. Aarav Sharma"
+            class="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:border-stone-900" />
+        </div>
+        <div>
+          <label for="loginRoll" class="block text-stone-600 font-medium mb-1.5">Registration ID</label>
+          <input id="loginRoll" type="text" required autocomplete="username" placeholder="e.g. 22FE10ITE001"
+            class="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 font-mono text-stone-800 focus:outline-none focus:border-stone-900" />
+        </div>
+        <button id="loginButton" type="submit"
+          class="w-full bg-stone-900 hover:bg-stone-800 text-white font-medium py-2.5 rounded-lg text-xs transition shadow-sm mt-2">
+          Continue to Floor Plan
+        </button>
+      </form>
+      <p class="mt-4 text-[11px] leading-relaxed text-stone-400">College project prototype: enter a registered ID or create a demo account.</p>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="bg-white border-b border-stone-200 px-6 py-3.5">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <h1 class="text-sm font-semibold text-stone-900 tracking-tight">MUJ Library</h1>
+        <div class="hidden sm:flex items-center gap-4 text-xs text-stone-500 border-l border-stone-200 pl-6">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><strong id="statAvailable" class="font-medium text-stone-800">0</strong> open</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-stone-400"></span><strong id="statOccupied" class="font-medium text-stone-800">0</strong> occupied</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span><strong id="statRenewal" class="font-medium text-stone-800">0</strong> scan due</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs">
+        <div class="text-right">
+          <p id="navUserName" class="font-medium text-stone-900">Student</p>
+          <p id="navUserRoll" class="font-mono text-[11px] text-stone-400">Not signed in</p>
+        </div>
+        <button id="logoutButton" type="button" class="text-stone-500 hover:text-stone-800 px-2.5 py-1.5 border border-stone-200 rounded-md transition bg-stone-50">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" role="status" aria-live="polite" class="fixed bottom-5 right-5 hidden z-[70] px-4 py-2.5 rounded-lg shadow-lg text-xs font-medium border transition-all max-w-sm"></div>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="max-w-6xl w-full mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
+
+    <!-- FLOOR PLAN -->
+    <section class="lg:col-span-8">
+      <div class="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="px-6 py-3.5 border-b border-stone-200 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500 bg-white">
+          <span class="font-medium text-stone-700">Reading Hall Map</span>
+          <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Open</span>
+            <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-stone-400"></span> Occupied</span>
+            <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Scan due</span>
+          </div>
+        </div>
+
+        <div class="floor-grid p-5 sm:p-8 space-y-8">
+          <div>
+            <div class="mb-3"><span class="text-xs font-medium text-stone-700">Table Number</span></div>
+            <div id="silentZoneGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5"></div>
+          </div>
+          <div>
+            <div class="mb-3"><span class="text-xs font-medium text-stone-700">Discussion Rooms</span></div>
+            <div id="discussionZoneGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="lg:col-span-4 space-y-5">
+      <!-- SELECTED SEAT -->
+      <section class="bg-white border border-stone-200 rounded-xl p-5 shadow-sm">
+        <div class="flex items-start justify-between border-b border-stone-100 pb-4 mb-4">
+          <div>
+            <p id="inspectorZone" class="text-[11px] text-stone-400 uppercase tracking-wider font-medium">Selection</p>
+            <h2 id="inspectorTitle" class="text-lg font-semibold text-stone-900 mt-0.5">Select a seat</h2>
+          </div>
+          <span id="inspectorBadge" class="px-2.5 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-600">—</span>
+        </div>
+        <div id="inspectorBody" class="space-y-4 text-xs">
+          <p class="text-stone-500">Choose a seat from the map to see its current status.</p>
+        </div>
+      </section>
+
+      <!-- CAMERA QR SCANNER -->
+      <section class="bg-white border border-stone-200 rounded-xl p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-stone-900 mb-1">Scan a desk QR code</h3>
+        <p class="text-xs text-stone-500 mb-4">Use your camera to check in to an available seat or renew your current session.</p>
+
+        <button id="startScannerButton" type="button" class="w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white font-medium py-2.5 rounded-lg text-xs transition" aria-pressed="false">
+          Start Camera Scanner
+        </button>
+
+        <p id="qrReaderStatus" class="mt-3 text-xs text-stone-500" role="status" aria-live="polite"></p>
+        <div id="qr-reader" class="mt-3 w-full overflow-hidden relative z-0"></div>
+        <p class="mt-3 text-[11px] leading-relaxed text-stone-400">Camera access requires permission.</p>
+      </section>
+
+      <!-- RECENT ACTIVITY -->
+      <section class="bg-white border border-stone-200 rounded-xl p-5 shadow-sm">
+        <h3 class="text-xs font-semibold text-stone-900 mb-3">Recent Activity</h3>
+        <div id="logsContainer" class="space-y-2.5 text-xs divide-y divide-stone-100">
+          <p class="text-stone-400 text-center py-2">No recent activity.</p>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- QR reading library; requires internet access in the browser -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <script>
+    'use strict';
+
+    let currentUser = null;
+    let appState = null;
+    let selectedSeatId = 1;
+    let qrScanner = null;
+    let qrScanLocked = false;
+    let qrStartPromise = null;
+    let qrStopPromise = null;
+    let qrStopRequested = false;
+    let qrScannerState = 'stopped'; // stopped, starting, running, stopping
+    let toastTimeout = null;
+
+    try {
+      currentUser = JSON.parse(localStorage.getItem('muj_library_user') || 'null');
+    } catch (error) {
+      localStorage.removeItem('muj_library_user');
+      currentUser = null;
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+    document.getElementById('logoutButton').addEventListener('click', handleLogout);
+    document.getElementById('startScannerButton').addEventListener('click', toggleQrScanner);
+
+    function formatTime(totalSeconds) {
+      const seconds = Math.max(0, Number(totalSeconds) || 0);
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function formatZoneName(dbZone) {
+      return dbZone === 'Silent Study Zone' ? 'Table Number' : 'Discussion Rooms';
+    }
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message || (isError ? 'Something went wrong.' : 'Done.');
+      toast.className = `fixed bottom-5 right-5 z-[70] px-4 py-2.5 rounded-lg shadow-lg text-xs font-medium border transition-all max-w-sm ${
+        isError ? 'bg-red-50 border-red-200 text-red-800' : 'bg-stone-900 border-stone-800 text-white'
+      }`;
+      toast.classList.remove('hidden');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    async function readJsonResponse(response) {
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON but received HTTP ${response.status}. ${text.slice(0, 120)}`);
+      }
+      return response.json();
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      const name = document.getElementById('loginName').value.trim();
+      const roll_number = document.getElementById('loginRoll').value.trim();
+      const loginButton = document.getElementById('loginButton');
+
+      if (!name || !roll_number) {
+        showToast('Enter your full name and registration ID.', true);
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.textContent = 'Signing in...';
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, roll_number })
+        });
+        const data = await readJsonResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed.');
+        }
+
+        currentUser = data.user;
+        localStorage.setItem('muj_library_user', JSON.stringify(currentUser));
+        document.getElementById('loginModal').classList.add('hidden');
+        document.getElementById('loginForm').reset();
+        initApp();
+        showToast(`Welcome, ${currentUser.name}.`);
+      } catch (error) {
+        console.error('Login error:', error);
+        showToast(error.message || 'Could not sign in. Check the Flask server.', true);
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Continue to Floor Plan';
+      }
+    }
+
+    async function handleLogout() {
+      await stopQrScanner();
+      localStorage.removeItem('muj_library_user');
+      currentUser = null;
+      appState = null;
+      document.getElementById('navUserName').textContent = 'Student';
+      document.getElementById('navUserRoll').textContent = 'Not signed in';
+      document.getElementById('loginModal').classList.remove('hidden');
+    }
+
+    function initApp() {
+      if (!currentUser || !currentUser.id) {
+        currentUser = null;
+        document.getElementById('loginModal').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('navUserName').textContent = currentUser.name || 'Student';
+      document.getElementById('navUserRoll').textContent = currentUser.roll_number || '';
+      fetchState();
+    }
+
+    async function fetchState() {
+      if (!currentUser) return;
+
+      try {
+        const response = await fetch(`/api/state?user_id=${encodeURIComponent(currentUser.id)}`, { cache: 'no-store' });
+        const data = await readJsonResponse(response);
+        if (!response.ok) throw new Error(data.error || 'Unable to load seat status.');
+
+        appState = data;
+        if (!appState.active_sessions) appState.active_sessions = {};
+        if (!Array.isArray(appState.seats)) appState.seats = [];
+        if (!Array.isArray(appState.logs)) appState.logs = [];
+
+        if (!appState.seats.some(seat => Number(seat.id) === Number(selectedSeatId))) {
+          selectedSeatId = appState.seats.length ? Number(appState.seats[0].id) : null;
+        }
+        renderUI();
+      } catch (error) {
+        console.error('Error fetching state:', error);
+        showToast('Could not load the library status. Check the Flask terminal.', true);
+      }
+    }
+
+    function renderUI() {
+      if (!appState) return;
+
+      document.getElementById('statAvailable').textContent = appState.seats.filter(seat => seat.status === 'AVAILABLE').length;
+      document.getElementById('statOccupied').textContent = appState.seats.filter(seat => seat.status === 'OCCUPIED').length;
+      document.getElementById('statRenewal').textContent = appState.seats.filter(seat => seat.status === 'AWAITING_RENEWAL').length;
+
+      const silentSeats = appState.seats.filter(seat => seat.zone === 'Silent Study Zone');
+      const discussionSeats = appState.seats.filter(seat => seat.zone === 'Discussion Pods');
+
+      document.getElementById('silentZoneGrid').innerHTML = silentSeats.map(renderSeatItem).join('');
+      document.getElementById('discussionZoneGrid').innerHTML = discussionSeats.map(renderSeatItem).join('');
+
+      renderInspector();
+      renderLogs();
+    }
+
+    function renderSeatItem(seat) {
+      const sess = appState.active_sessions[String(seat.id)] || appState.active_sessions[seat.id];
+      const isSelected = Number(seat.id) === Number(selectedSeatId);
+
+      let cardStyle = 'bg-white border-stone-200/90 hover:border-stone-400 text-stone-800';
+      let dotStyle = 'bg-emerald-600';
+      let subtext = 'Open';
+      let timerDisplay = '';
+
+      if (seat.status === 'OCCUPIED' && sess) {
+        cardStyle = 'bg-stone-100/90 border-stone-300 text-stone-600';
+        dotStyle = 'bg-stone-400';
+        subtext = 'Occupied';
+        timerDisplay = formatTime(sess.seconds_until_due);
+      } else if (seat.status === 'AWAITING_RENEWAL' && sess) {
+        cardStyle = 'bg-amber-50/90 border-amber-300 text-amber-900';
+        dotStyle = 'bg-amber-500 dot-pulse';
+        subtext = 'Scan due';
+        timerDisplay = formatTime(sess.seconds_until_expiry);
+      } else if (seat.status !== 'AVAILABLE') {
+        subtext = seat.status === 'MAINTENANCE' ? 'Unavailable' : 'Occupied';
+        dotStyle = 'bg-stone-400';
+        cardStyle = 'bg-stone-100 border-stone-300 text-stone-600';
+      }
+
+      const selectedRing = isSelected ? 'ring-2 ring-stone-900 border-stone-900 z-10' : '';
+
+      return `
+        <button type="button" onclick="selectSeat(${Number(seat.id)})"
+          aria-label="${escapeHtml(seat.seat_label)}: ${escapeHtml(subtext)}"
+          class="group relative flex flex-col justify-between min-h-[82px] p-3.5 rounded-lg border border-t-4 text-left transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${cardStyle} ${selectedRing}">
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="font-mono text-xs font-medium tracking-tight text-stone-900">${escapeHtml(seat.seat_label)}</span>
+            <span class="w-2 h-2 rounded-full ${dotStyle}"></span>
+          </div>
+          <div class="flex items-baseline justify-between w-full gap-1">
+            <span class="text-xs font-medium truncate">${escapeHtml(subtext)}</span>
+            <span class="font-mono text-[11px] text-stone-400">${timerDisplay}</span>
+          </div>
+        </button>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[character]));
+    }
+
+    function selectSeat(seatId) {
+      selectedSeatId = Number(seatId);
+      renderUI();
+    }
+
+    function renderInspector() {
+      const seat = appState.seats.find(item => Number(item.id) === Number(selectedSeatId));
+      const body = document.getElementById('inspectorBody');
+      if (!seat) {
+        document.getElementById('inspectorZone').textContent = 'Library';
+        document.getElementById('inspectorTitle').textContent = 'No seats found';
+        document.getElementById('inspectorBadge').textContent = '—';
+        body.innerHTML = '<p class="text-stone-500">No seats are available in the database.</p>';
+        return;
+      }
+
+      const sess = appState.active_sessions[String(seat.id)] || appState.active_sessions[seat.id];
+      const isOwner = Boolean(sess && currentUser && Number(sess.user_id) === Number(currentUser.id));
+
+      document.getElementById('inspectorZone').textContent = formatZoneName(seat.zone);
+      document.getElementById('inspectorTitle').textContent = seat.seat_label;
+
+      const badge = document.getElementById('inspectorBadge');
+      if (seat.status === 'AVAILABLE') {
+        badge.textContent = 'Available';
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+      } else if (seat.status === 'OCCUPIED') {
+        badge.textContent = 'Occupied';
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-200';
+      } else if (seat.status === 'AWAITING_RENEWAL') {
+        badge.textContent = 'Scan due';
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200';
+      } else {
+        badge.textContent = 'Unavailable';
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200';
+      }
+
+      if (seat.status === 'AVAILABLE') {
+        body.innerHTML = `
+          <div class="space-y-2 py-1 text-stone-600">
+            <div class="flex justify-between gap-3">
+              <span class="text-stone-400">Session length</span>
+              <span class="font-medium text-stone-800 text-right">${appState.demo_mode ? '20 seconds + 15 seconds grace' : '90 minutes + 15 minutes grace'}</span>
+            </div>
+          </div>
+          <div class="rounded-lg bg-stone-50 border border-stone-200 p-3 text-xs text-stone-600 leading-relaxed">
+            To check in to this seat, use the camera scanner below and scan the QR code attached to the desk.
+          </div>
+        `;
+        return;
+      }
+
+      if (sess) {
+        const isGrace = seat.status === 'AWAITING_RENEWAL';
+        const totalWindow = isGrace ? Number(appState.grace_duration_sec || 900) : Number(appState.study_duration_sec || 5400);
+        const remaining = isGrace ? Number(sess.seconds_until_expiry || 0) : Number(sess.seconds_until_due || 0);
+        const pct = Math.max(0, Math.min(100, Math.round((remaining / Math.max(1, totalWindow)) * 100)));
+
+        body.innerHTML = `
+          <div class="flex justify-between gap-3 py-1">
+            <span class="text-stone-400">Occupant</span>
+            <span class="font-medium text-stone-900">${isOwner ? 'You' : 'Reserved'}</span>
+          </div>
+          <div class="p-3 rounded-lg border ${isGrace ? 'bg-amber-50/60 border-amber-200' : 'bg-stone-50 border-stone-200/80'}">
+            <div class="flex justify-between items-baseline gap-3 mb-2">
+              <span class="text-[11px] font-medium ${isGrace ? 'text-amber-800' : 'text-stone-500'}">${isGrace ? 'Auto-releases in' : 'Next scan due in'}</span>
+              <span class="font-mono text-sm font-medium text-stone-900">${formatTime(remaining)}</span>
+            </div>
+            <div class="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
+              <div class="${isGrace ? 'bg-amber-500' : 'bg-stone-800'} h-full transition-all duration-500" style="width: ${pct}%"></div>
+            </div>
+          </div>
+          ${isOwner ? `
+            <p class="text-[11px] leading-relaxed text-stone-500">To renew your session, use the camera scanner and scan the QR code for this same seat.</p>
+            <button type="button" onclick="checkoutSeat(${Number(seat.id)})" class="w-full bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 font-medium py-2.5 rounded-lg text-xs transition">Leave seat</button>
+          ` : `
+            <p class="text-xs text-stone-500">This seat is in use by another student. Their identity is not displayed.</p>
+          `}
+        `;
+        return;
+      }
+
+      body.innerHTML = '<p class="text-stone-500">This seat is currently unavailable.</p>';
+    }
+
+    function escapeJsString(value) {
+      return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+      if (!appState.logs.length) {
+        container.innerHTML = '<p class="text-stone-400 text-center py-2">No recent activity.</p>';
+        return;
+      }
+
+      container.innerHTML = appState.logs.map(log => `
+        <div class="py-2 flex items-center justify-between gap-3">
+          <span class="font-mono font-medium text-stone-900">${escapeHtml(log.seat_label)}</span>
+          <span class="text-stone-500">${escapeHtml(String(log.status || '').toLowerCase().replaceAll('_', ' '))}</span>
+          <span class="font-mono text-[11px] text-stone-400">${escapeHtml((log.started_at || '').split(' ')[1] || '')}</span>
+        </div>
+      `).join('');
+    }
+
+    async function scanSeat(qrToken) {
+      if (!currentUser) {
+        showToast('Please sign in first.', true);
+        return false;
+      }
+
+      try {
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: Number(currentUser.id), qr_token: String(qrToken).trim() })
+        });
+        const data = await readJsonResponse(response);
+
+        if (!response.ok) {
+          showToast(data.error || 'Scan failed.', true);
+          return false;
+        }
+
+        showToast(data.message || 'Seat updated.');
+        await fetchState();
+        return true;
+      } catch (error) {
+        console.error('Seat scan error:', error);
+        showToast(error.message || 'Could not contact the server.', true);
+        return false;
+      }
+    }
+
+    async function checkoutSeat(seatId) {
+      if (!currentUser) return;
+      try {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seat_id: Number(seatId), user_id: Number(currentUser.id) })
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          showToast(data.error || 'Could not leave this seat.', true);
+          return;
+        }
+        showToast(data.message || 'Seat released.');
+        await fetchState();
+      } catch (error) {
+        console.error('Checkout error:', error);
+        showToast(error.message || 'Could not contact the server.', true);
+      }
+    }
+
+    function updateScannerButton(state) {
+      const button = document.getElementById('startScannerButton');
+      if (!button) return;
+
+      if (state === 'stopping') {
+        button.textContent = 'Stopping Camera...';
+        button.disabled = true;
+        button.setAttribute('aria-pressed', 'true');
+        button.className = 'w-full bg-stone-500 text-white font-medium py-2.5 rounded-lg text-xs transition cursor-wait';
+      } else if (state === 'starting' || state === 'running') {
+        button.textContent = 'Stop Camera Scanner';
+        button.disabled = false; // Keep clickable even while camera initialization is pending.
+        button.setAttribute('aria-pressed', 'true');
+        button.className = 'w-full bg-rose-700 hover:bg-rose-800 text-white font-medium py-2.5 rounded-lg text-xs transition';
+      } else {
+        button.textContent = 'Start Camera Scanner';
+        button.disabled = false;
+        button.setAttribute('aria-pressed', 'false');
+        button.className = 'w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white font-medium py-2.5 rounded-lg text-xs transition';
+      }
+    }
+
+    async function toggleQrScanner() {
+      if (qrScannerState === 'starting' || qrScannerState === 'running') {
+        await stopQrScanner();
+        return;
+      }
+      if (qrScannerState === 'stopping' || qrStopPromise) return;
+      await startQrScanner();
+    }
+
+    async function startQrScanner() {
+      if (!currentUser) {
+        showToast('Please sign in first.', true);
+        return;
+      }
+
+      if (typeof Html5Qrcode === 'undefined') {
+        showToast('QR scanner library failed to load. Check your internet connection.', true);
+        return;
+      }
+
+      if (qrStopPromise) await qrStopPromise;
+      if (qrScannerState !== 'stopped' || qrScanner) return;
+
+      qrStopRequested = false;
+      qrScanLocked = false;
+      qrScannerState = 'starting';
+      updateScannerButton('starting');
+
+      const status = document.getElementById('qrReaderStatus');
+      const scanner = new Html5Qrcode('qr-reader');
+      qrScanner = scanner;
+      status.textContent = 'Requesting camera access...';
+
+      let thisStartPromise = null;
+      try {
+        thisStartPromise = scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 230, height: 230 } },
+          async (decodedText) => {
+            if (qrScanLocked || qrStopRequested || qrScannerState === 'stopping') return;
+            qrScanLocked = true;
+            status.textContent = 'QR code detected. Processing...';
+            const token = String(decodedText || '').trim();
+
+            try {
+              await stopQrScanner();
+              const success = await scanSeat(token);
+              status.textContent = success
+                ? 'Scan successful. Seat status updated.'
+                : 'Scan was not accepted. Please try again.';
+            } catch (error) {
+              console.error('QR processing error:', error);
+              showToast('Could not process the QR scan.', true);
+            } finally {
+              qrScanLocked = false;
+            }
+          },
+          () => {
+            // No QR found in this frame; keep scanning.
+          }
+        );
+        qrStartPromise = thisStartPromise;
+        await thisStartPromise;
+
+        // If the user clicked Stop while the camera was opening,
+        // stopQrScanner() is already waiting for this start promise.
+        if (qrStopRequested || qrScannerState === 'stopping') return;
+
+        qrScannerState = 'running';
+        updateScannerButton('running');
+        status.textContent = 'Camera active. Point it at a desk QR code.';
+      } catch (error) {
+        console.error('Camera start error:', error);
+
+        if (!qrStopRequested && qrScannerState !== 'stopping') {
+          showToast('Unable to open the camera. Check browser camera permissions.', true);
+          status.textContent = 'Could not open the camera. Check browser permissions.';
+        }
+
+        try {
+          if (scanner.isScanning) await scanner.stop();
+        } catch (stopError) {
+          console.warn('Camera cleanup after start error failed:', stopError);
+        }
+        try { scanner.clear(); } catch (_) {}
+
+        if (qrScanner === scanner) qrScanner = null;
+        if (!qrStopPromise) {
+          qrScannerState = 'stopped';
+          qrStopRequested = false;
+          updateScannerButton('stopped');
+        }
+      } finally {
+        if (qrStartPromise === thisStartPromise) qrStartPromise = null;
+      }
+    }
+
+    async function stopQrScanner() {
+      if (qrStopPromise) return qrStopPromise;
+
+      const scanner = qrScanner;
+      const pendingStart = qrStartPromise;
+      const status = document.getElementById('qrReaderStatus');
+
+      if (!scanner && !pendingStart) {
+        qrScannerState = 'stopped';
+        qrStopRequested = false;
+        updateScannerButton('stopped');
+        if (status && !/successful|not accepted/i.test(status.textContent)) status.textContent = '';
+        return;
+      }
+
+      qrStopRequested = true;
+      qrScannerState = 'stopping';
+      updateScannerButton('stopping');
+
+      const stopTask = (async () => {
+        // If Stop is clicked while the camera is starting, wait for startup
+        // to settle and then stop the same scanner instance.
+        if (pendingStart) {
+          try { await pendingStart; } catch (_) { /* startup handler cleans up */ }
+        }
+
+        if (scanner) {
+          try {
+            if (scanner.isScanning) await scanner.stop();
+          } catch (error) {
+            console.error('Could not stop camera:', error);
+            showToast('The camera did not stop cleanly. Refresh the page and try again.', true);
+          }
+          try { scanner.clear(); } catch (error) {
+            console.warn('Could not clear QR scanner UI:', error);
+          }
+        }
+
+        if (qrScanner === scanner) qrScanner = null;
+        qrScannerState = 'stopped';
+        qrStopRequested = false;
+        qrScanLocked = false;
+        updateScannerButton('stopped');
+
+        if (status && !/successful|not accepted/i.test(status.textContent)) {
+          status.textContent = '';
+        }
+      })();
+
+      qrStopPromise = stopTask;
+      try {
+        await stopTask;
+      } finally {
+        if (qrStopPromise === stopTask) qrStopPromise = null;
+      }
+    }
+
+    // Ensure camera is stopped when the page is closed or refreshed.
+    window.addEventListener('pagehide', () => {
+      if (qrScanner && qrScanner.isScanning) {
+        try { qrScanner.stop(); } catch (_) {}
+      }
+    });
+  </script>
+</body>
+</html>
