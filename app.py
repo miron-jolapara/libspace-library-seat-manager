@@ -19,8 +19,6 @@ app.config["SECRET_KEY"] = os.environ.get(
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# These defaults are intended ONLY for a local college-project demo.
-# You can override them with environment variables before running Flask.
 ADMIN_USERNAME = os.environ.get("LIBSPACE_ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("LIBSPACE_ADMIN_PASSWORD", "LibSpace@2026")
 
